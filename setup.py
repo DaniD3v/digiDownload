@@ -21,5 +21,5 @@ setuptools.setup(
         "beautifulsoup4"
     ],
 
-    download_url='https://github.com/DaniD3v/digiDownload/archive/refs/tags/1.0.4.tar.gz',
+    download_url='https://github.com/DaniD3v/digiDownload/archive/refs/tags/v1.0.4.tar.gz',
 )
