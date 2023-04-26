@@ -8,7 +8,7 @@ setuptools.setup(
     description="API to download books from digi4school.at.",
     keywords=["digi4school", "books", "api"],
 
-    version="1.0.3",
+    version="1.0.4",
     license='MIT',
 
     packages=["digiDownload"],
@@ -17,9 +17,9 @@ setuptools.setup(
         "lxml",
         "reportlab",
         "PyPDF2",
-        "svglib"
+        "svglib",
         "beautifulsoup4"
     ],
 
-    download_url='https://github.com/DaniD3v/digiDownload/archive/refs/tags/1.0.3.tar.gz',
+    download_url='https://github.com/DaniD3v/digiDownload/archive/refs/tags/1.0.4.tar.gz',
 )
