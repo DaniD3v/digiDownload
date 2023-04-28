@@ -17,11 +17,11 @@ def _increment_page(page: str or int):
 
 
 def get_digi4school_url(book_id: str, extra: str):
-    return lambda page, ending: f"https://a.digi4school.at/ebook/{book_id}/{extra}{_increment_page(page)}{ending}"
+    return lambda page, ending, _=False: f"https://a.digi4school.at/ebook/{book_id}/{extra}{_increment_page(page)}{ending}"
 
 
 def get_hpthek_url(book_id: str, extra: str):
-    return lambda page, ending: f"https://a.hpthek.at/ebook/{book_id}/{_increment_page(page)}{'/' if page != '' else ''}{extra}{_increment_page(page)}{ending}"
+    return lambda page, ending, add_second_page=True: f"https://a.hpthek.at/ebook/{book_id}/{_increment_page(page)}{'/' if page != '' else ''}{extra}{_increment_page(page) if add_second_page else ''}{ending}"
 
 
 class Book:
@@ -94,7 +94,7 @@ class Book:
             url_ending = image["xlink:href"]
             if url_ending.count('/') == 2: url_ending = '/'.join(url_ending.split('/')[1:])
 
-            url = self._url(page, '/' + url_ending)
+            url = self._url(page, '/' + url_ending, False)
             queue.append(asyncio.create_task(self._client.get(url, headers={"Content-Type": "image/avif,image/webp,*/*"})))
 
         for resp in queue:
