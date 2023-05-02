@@ -64,7 +64,7 @@ class Book:
         try: self._url = Book.urls[second_form.url.host](self._content_id, "")
         except KeyError: print(f"Undocumented url: {second_form.url.host} (Book: {self.title})\nPlease open a Github issue with this url and the book title."); return None
 
-        main_page = (await client.get(self._url("", ""))).text  # don't remove the / at the end of the url
+        main_page = (await client.get(self._url("", ""))).text
         if main_page.split('\n')[0] == "<html>":  # checks if there are multiple volumes
             soup = BeautifulSoup(main_page, "html.parser")
             extra = '/'.join(soup.find("a")["href"].split("/")[:-1]) + '/'
@@ -119,6 +119,7 @@ class Book:
             renderPDF.drawToFile(rlg, buffer)
 
         except AttributeError:
+            print(f"Couldn't render page {page} of {self.title}. (Book: {self.title})\nPlease open a Github issue with the book title.")
             canvas = Canvas(buffer)
             canvas.save()
 
@@ -130,7 +131,7 @@ class Book:
 
         async def progress_updater():
             while True:
-                finished = 0
+                finished = 1
                 for task in queue: finished += 1 if task.done() else 0
 
                 print(f"Downloading {self.title}: {finished/(self._pages+1)*100:.2f}% ({finished}/{self._pages+1})", end='\r')

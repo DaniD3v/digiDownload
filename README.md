@@ -28,3 +28,6 @@ Because I can only test the library with the books I have access to, I don't eve
 
 - Books hosted directly on digi4school.at or hpthek.at will likely work
 - there is limited compatibility with books that have multiple volumes
+
+# Known Issues
+Black background in images making use of transparency. This is due to svglib and I can't do anything about it, because there aren't any alternatives. cairosvg doesn't handle images at all and is to slow.
