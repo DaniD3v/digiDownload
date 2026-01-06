@@ -25,20 +25,25 @@ class Session:
 
         return cls(client)
 
-    async def get_books(self) -> list[Book]:
-        resp = await self._client.get("https://digi4school.at/ebooks")
-        soup = BeautifulSoup(resp.text, "html.parser")
+    async def get_books(self):
+        response = await self._client.get("https://digi4school.at/br/xhr/v2/synch")
 
-        queue = []
+        if response.status_code != 200:
+            return
 
-        for book in soup.find("div", {"id": "shelf"}):
-            queue.append(asyncio.create_task(Book.create(self._client, book)))
+        data = response.json()
+        book_list = data.get('books', [])
 
-        for result in queue:
-            result = await result
-            if isinstance(result, list):
-                for volume in result: yield volume
-            elif result is not None: yield result
+        tasks = []
+        for book_data in book_list:
+            print(f"Found: {book_data.get('title')}")
+            tasks.append(Book.create(self._client, book_data))
+
+        books = await asyncio.gather(*tasks)
+
+        for book in books:
+            if book:
+                yield book
 
     async def redeem_code(self, code: str) -> str:
         resp = (await self._client.post("https://digi4school.at/br/xhr/einloesen",

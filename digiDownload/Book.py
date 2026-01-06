@@ -10,6 +10,7 @@ from io import BytesIO
 
 from base64 import encodebytes
 import asyncio
+from asyncio import Semaphore
 
 
 def _increment_page(page: str or int):
@@ -35,7 +36,6 @@ class Book:
 
         self.publisher = None
         self.title = None
-        self.cover = None
 
         self._code = None
         self._id = None
@@ -45,15 +45,14 @@ class Book:
         self._pages = None
 
     @classmethod
-    async def create(cls, client: AsyncClient, html: BeautifulSoup) -> "Book" or list["Book"] or None:
+    async def create(cls, client: AsyncClient, data: dict) -> "Book" or list["Book"] or None:
         self = cls(client)
 
-        self.publisher = html.find("span", {"class": "publisher"}).text
-        self.title = html.find("h1").text
-        self.cover = html.find("img")["src"]
+        self.publisher = data.get('publisher')
+        self.title = data.get('title')
 
-        self._code = html["data-code"]
-        self._id = html["data-id"]
+        self._code = data.get('code')
+        self._id = data.get('id')
 
         resp = LTIForm((await client.get(f"https://digi4school.at/ebook/{self._code}")).text)
         first_form = LTIForm((await resp.send(client)).text)
@@ -68,11 +67,8 @@ class Book:
         if main_page.split('\n')[0] == "<html>":  # checks if there are multiple volumes
             soup = BeautifulSoup(main_page, "html.parser")
             extra = '/'.join(soup.find("a")["href"].split("/")[:-1]) + '/'
-
             self._url = Book.urls[second_form.url.host](self._content_id, extra)
             main_page = (await client.get(self._url("", ""))).text
-
-            # TODO actually make multiple volumes work instead of simply taking the first one
 
         soup = BeautifulSoup(main_page, "html.parser").find("meta", {"name": "pageLabels"})
         if soup is not None: self._pages = soup['content'].count(',')
@@ -90,17 +86,27 @@ class Book:
         queue = []
         images = svg.find_all("image")
 
-        for image in images:
-            url_ending = image["xlink:href"]
+        img_sem = Semaphore(5)
+
+        async def fetch_image(img_tag):
+            url_ending = img_tag["xlink:href"]
             if url_ending.count('/') == 2: url_ending = '/'.join(url_ending.split('/')[1:])
 
             url = self._url(page, '/' + url_ending, False)
-            queue.append(asyncio.create_task(self._client.get(url, headers={"Content-Type": "image/avif,image/webp,*/*"})))
 
-        for resp in queue:
-            image = images[queue.index(resp)]
-            resp = await resp
-            if resp.headers["Content-Type"].startswith("image/"): yield image, resp
+            async with img_sem:
+                resp = await self._client.get(url, headers={"Content-Type": "image/avif,image/webp,*/*"}, timeout=60.0)
+                return img_tag, resp
+
+        for image in images:
+            queue.append(asyncio.create_task(fetch_image(image)))
+
+        for task in queue:
+            try:
+                image_tag, response = await task
+                if response.headers["Content-Type"].startswith("image/"): yield image_tag, response
+            except Exception as e:
+                print(f"Warning: Image download failed: {e}")
 
     async def get_page_svg(self, page: int) -> str:
         soup = BeautifulSoup((await self._get_page(page)).text, "xml")
@@ -129,18 +135,26 @@ class Book:
         merger = PdfMerger()
         queue = []
 
+        page_sem = Semaphore(5)
+
+        async def fetch_page_safe(p):
+            async with page_sem:
+                return await self.get_page_pdf(p)
+
         async def progress_updater():
             while True:
-                finished = 1
-                for task in queue: finished += 1 if task.done() else 0
+                finished = sum(1 for t in queue if t.done())
+                total = len(queue) if len(queue) > 0 else 1
 
-                print(f"Downloading {self.title}: {finished/(self._pages+1)*100:.2f}% ({finished}/{self._pages+1})", end='\r')
-                if finished == self._pages: break
+                print(f"Downloading {self.title}: {finished / total * 100:.2f}% ({finished}/{total})", end='\r')
+                if finished == total and total > 0: break
                 await asyncio.sleep(1)
+
+        for page in range(self._pages):
+            queue.append(asyncio.create_task(fetch_page_safe(page)))
 
         if show_progress: asyncio.create_task(progress_updater())
 
-        for page in range(self._pages): queue.append(asyncio.create_task(self.get_page_pdf(page)))
         for resp in queue:
             result = await resp
             if result is not None: merger.append(result)

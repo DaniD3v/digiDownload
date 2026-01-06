@@ -6,7 +6,7 @@ from getpass import getpass
 
 async def run():
     try: session = await Session.create(os.environ["email"], os.environ["password"])
-    except KeyError: session = await Session.create(input("EMail: "), getpass("Password: "))
+    except KeyError: session = await Session.create(input("Email: "), getpass("Password: "))
     books = [(b, False) async for b in session.get_books()]
 
     path = f"{os.getcwd()}"
