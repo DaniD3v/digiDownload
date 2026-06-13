@@ -12,7 +12,7 @@ async def run():
     path = f"{os.getcwd()}"
     if not os.path.exists(path): os.mkdir(path)
 
-    def menu(books: list) -> bool:  # False -> continue, True -> finish
+    async def menu(books: list) -> bool:  # False -> continue, True -> finish
         print("\nSelect the books you want to download:")
         for i, (b, s) in enumerate(books): print(f"{i + 1}: [{'x' if s else ' '}] {b.title}")
         print("R: Register new book.")
@@ -29,16 +29,16 @@ async def run():
         else:
             match selection.lower():
                 case 'r':
-                    err = session.redeem_code(input("code: "))
+                    err = await session.redeem_code(input("code: "))
                     if err is not None: print(err)
                     # noinspection PyUnusedLocal
-                    books = [(b, False) for b in session.get_books()]
+                    books[:] = [(b, False) async for b in session.get_books()]
                 case 'f': return True
                 case 'q': exit(0)
 
         return False
 
-    while not menu(books): pass
+    while not await menu(books): pass
 
     for book in [b for b, s in books if s]:
         book_content = (await book.get_pdf(True)).getbuffer().tobytes()
